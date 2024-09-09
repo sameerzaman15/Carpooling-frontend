@@ -1,0 +1,17 @@
+
+.home-container {
+    display: flex;
+    height: 100vh; 
+  }
+  
+  .home-sidebar {
+    width: 25%; 
+    background-color: #f3f4f6;
+  }
+  
+  .home-content {
+    width: 75%;
+    padding: 2rem;
+    background-color: #fff;
+  }
+  

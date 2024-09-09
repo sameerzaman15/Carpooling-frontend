@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './Login.css'; // Import external CSS file
 
 const Login: React.FC = () => {
@@ -53,8 +53,12 @@ const Login: React.FC = () => {
             required
           />
         </div>
-
         <button type="submit" className="btn btn-primary btn-block">Login</button>
+        <div className="already text-center mt-2">
+              <p>
+                Don't have an account? <Link to="/">Register Now!</Link>
+              </p>
+            </div>
       </form>
     </div>
   );
