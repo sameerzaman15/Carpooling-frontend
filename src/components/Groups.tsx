@@ -86,8 +86,36 @@ const Groups: React.FC = () => {
     }
   };
   
-  const handleRequestPrivateGroup = (groupName: string) => {
-    alert(`Request to join ${groupName} has been sent.`);
+  const handleRequestPrivateGroup = async (groupId: number, groupName: string) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Authentication token not found. Please log in.');
+      return;
+    }
+  
+    try {
+      const response = await axios.post(`http://localhost:3000/groups/request-join/${groupId}`, {}, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+  
+      alert(`Request to join ${groupName} has been sent.`);
+      console.log(response.data);
+    } catch (error) {
+      console.error('Error requesting to join the group:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 400) {
+          alert('This operation is only allowed for private groups.');
+        } else if (error.response.status === 404) {
+          alert('Group or user not found.');
+        } else {
+          alert('Failed to send join request. Please try again later.');
+        }
+      } else {
+        alert('An unexpected error occurred. Please try again later.');
+      }
+    }
   };
   
   const handleCreateGroup = async () => {
@@ -158,7 +186,7 @@ const Groups: React.FC = () => {
             {privateGroups.map(group => (
               <tr 
                 key={group.id} 
-                onClick={() => handleRequestPrivateGroup(group.name)}
+                onClick={() => handleRequestPrivateGroup(group.id ,group.name)}
                 style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}
               >
                 <td>{group.name}</td>
@@ -177,7 +205,7 @@ const Groups: React.FC = () => {
               <tr 
                 key={group.id} 
                 onClick={() => handleJoinPublicGroup(group.id)}
-                style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}
+                style={{ backgroundColor: group.isMember ? 'black' : 'inherit' }}
               >
                 <td>{group.name}</td>
                 <td>{group.isMember ? '(Member)' : 'Join'}</td>
