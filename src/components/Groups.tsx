@@ -5,6 +5,7 @@ import './Groups.css';
 interface Group {
   id: number;
   name: string;
+  isMember?: boolean;
 }
 
 const Groups: React.FC = () => {
@@ -42,8 +43,8 @@ const Groups: React.FC = () => {
         })
       ]);
 
-      setPublicGroups(publicResponse.data);
-      setPrivateGroups(privateResponse.data);
+      setPublicGroups(publicResponse.data.map((group: Group) => ({ ...group, isMember: group.isMember || false })));
+      setPrivateGroups(privateResponse.data.map((group: Group) => ({ ...group, isMember: group.isMember || false })));
       console.log('Private Groups:', privateResponse.data);
 
       setLoading(false);
@@ -62,14 +63,23 @@ const Groups: React.FC = () => {
     }
   
     try {
-      const response = await axios.post(`http://localhost:3000/groups/join/${groupId}`, {}, {
+      const response = await axios.post(`http://localhost:3000/groups/${groupId}/join`, {}, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
   
-      alert(`You have successfully joined the group.`);
-      console.log(response.data); 
+      if (response.data.alreadyMember) {
+        alert('You are already a member of this group.');
+      } else {
+        alert('You have successfully joined the group.');
+        setPublicGroups(prevGroups =>
+          prevGroups.map(group =>
+            group.id === groupId ? { ...group, isMember: true } : group
+          )
+        );
+      }
+      console.log(response.data);
     } catch (error) {
       console.error('Error joining the group:', error);
       alert('Failed to join the group. Please try again later.');
@@ -113,9 +123,9 @@ const Groups: React.FC = () => {
 
       // Update the appropriate group list
       if (newGroupVisibility === 'public') {
-        setPublicGroups(prevGroups => [...prevGroups, createdGroup]);
+        setPublicGroups(prevGroups => [...prevGroups, { ...createdGroup, isMember: true }]);
       } else {
-        setPrivateGroups(prevGroups => [...prevGroups, createdGroup]);
+        setPrivateGroups(prevGroups => [...prevGroups, { ...createdGroup, isMember: true }]);
       }
 
       // Reset form
@@ -146,8 +156,13 @@ const Groups: React.FC = () => {
         <table className="groups-table">
           <tbody>
             {privateGroups.map(group => (
-              <tr key={group.id} onClick={() => handleRequestPrivateGroup(group.name)}>
+              <tr 
+                key={group.id} 
+                onClick={() => handleRequestPrivateGroup(group.name)}
+                style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}
+              >
                 <td>{group.name}</td>
+                <td>{group.isMember ? '(Member)' : ''}</td>
               </tr>
             ))}
           </tbody>
@@ -159,8 +174,13 @@ const Groups: React.FC = () => {
         <table className="groups-table">
           <tbody>
             {publicGroups.map(group => (
-              <tr key={group.id} onClick={() => handleJoinPublicGroup(group.id)}>
+              <tr 
+                key={group.id} 
+                onClick={() => handleJoinPublicGroup(group.id)}
+                style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}
+              >
                 <td>{group.name}</td>
+                <td>{group.isMember ? '(Member)' : 'Join'}</td>
               </tr>
             ))}
           </tbody>
