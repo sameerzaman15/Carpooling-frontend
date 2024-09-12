@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { FaBell } from 'react-icons/fa'; // 
 import './Groups.css';
 
 interface Group {
@@ -16,6 +17,8 @@ const Groups: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [groupRequests, setGroupRequests] = useState<any[]>([]); // Placeholder for group join requests
+  const [showRequests, setShowRequests] = useState(false); // Toggle requests dropdown
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('userId');
@@ -23,7 +26,19 @@ const Groups: React.FC = () => {
       setUserId(storedUserId);
     }
     fetchGroups();
+    fetchGroupRequests(); // Fetch requests on load
   }, []);
+
+  const fetchGroupRequests = async () => {
+    setGroupRequests([
+      { id: 1, name: 'User 1', groupName: 'Group A' },
+      { id: 2, name: 'User 2', groupName: 'Group B' },
+    ]);
+  };
+
+  const toggleRequests = () => {
+    setShowRequests(!showRequests);
+  };
 
   const fetchGroups = async () => {
     const token = localStorage.getItem('access_token');
@@ -85,7 +100,7 @@ const Groups: React.FC = () => {
       alert('Failed to join the group. Please try again later.');
     }
   };
-  
+
   const handleRequestPrivateGroup = async (groupId: number, groupName: string) => {
     const token = localStorage.getItem('access_token');
     if (!token) {
@@ -117,7 +132,7 @@ const Groups: React.FC = () => {
       }
     }
   };
-  
+
   const handleCreateGroup = async () => {
     if (!newGroupName) {
       alert('Group name is required');
@@ -149,14 +164,12 @@ const Groups: React.FC = () => {
 
       const createdGroup = response.data;
 
-      // Update the appropriate group list
       if (newGroupVisibility === 'public') {
         setPublicGroups(prevGroups => [...prevGroups, { ...createdGroup, isMember: true }]);
       } else {
         setPrivateGroups(prevGroups => [...prevGroups, { ...createdGroup, isMember: true }]);
       }
 
-      // Reset form
       setNewGroupName('');
       setNewGroupVisibility('public');
 
@@ -178,19 +191,36 @@ const Groups: React.FC = () => {
   return (
     <div className="groups-container">
       <h2 className="groups-heading">Groups</h2>
-      
+      <div className="notification-bell">
+        <FaBell onClick={toggleRequests} style={{ cursor: 'pointer' }} />
+        {showRequests && (
+          <div className="requests-dropdown">
+            <h4>Join Requests</h4>
+            <ul>
+              {groupRequests.map(request => (
+                <li key={request.id}>
+                  {request.name} requested to join {request.groupName}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
       <div className="groups-section">
         <h3>Private Groups</h3>
         <table className="groups-table">
           <tbody>
             {privateGroups.map(group => (
-              <tr 
-                key={group.id} 
-                onClick={() => handleRequestPrivateGroup(group.id ,group.name)}
-                style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}
-              >
+              <tr key={group.id} style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}>
                 <td>{group.name}</td>
-                <td>{group.isMember ? '(Member)' : ''}</td>
+                <td>
+                  {group.isMember ? '(Member)' : (
+                    <button onClick={() => handleRequestPrivateGroup(group.id, group.name)}>
+                      Request to Join
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -202,13 +232,15 @@ const Groups: React.FC = () => {
         <table className="groups-table">
           <tbody>
             {publicGroups.map(group => (
-              <tr 
-                key={group.id} 
-                onClick={() => handleJoinPublicGroup(group.id)}
-                style={{ backgroundColor: group.isMember ? 'black' : 'inherit' }}
-              >
+              <tr key={group.id} style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}>
                 <td>{group.name}</td>
-                <td>{group.isMember ? '(Member)' : 'Join'}</td>
+                <td>
+                  {group.isMember ? '(Member)' : (
+                    <button onClick={() => handleJoinPublicGroup(group.id)}>
+                      Join
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -219,19 +251,17 @@ const Groups: React.FC = () => {
         <input
           type="text"
           value={newGroupName}
-          onChange={(e) => setNewGroupName(e.target.value)}
-          placeholder="New Group Name"
+          onChange={e => setNewGroupName(e.target.value)}
+          placeholder="New group name"
         />
         <select
           value={newGroupVisibility}
-          onChange={(e) => setNewGroupVisibility(e.target.value as 'public' | 'private')}
+          onChange={e => setNewGroupVisibility(e.target.value as 'public' | 'private')}
         >
           <option value="public">Public</option>
           <option value="private">Private</option>
         </select>
-        <button onClick={handleCreateGroup} className="create-group-button">
-          Create Group
-        </button>
+        <button onClick={handleCreateGroup}>Create Group</button>
       </div>
     </div>
   );
