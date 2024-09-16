@@ -26,6 +26,7 @@ const Groups: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joinRequests, setJoinRequests] = useState<{ [key: number]: { fullName: string; status: string }[] }>({});
+  const [activeGroup, setActiveGroup] = useState<number | null>(null); // Track the active group for join requests
 
   // useRef to ensure API is called only once
   const hasFetchedData = useRef(false);
@@ -43,9 +44,8 @@ const Groups: React.FC = () => {
   useEffect(() => {
     if (userId) {
       fetchGroups();
-      fetchJoinRequests();  // Call the function to fetch join requests
     }
-  }, [userId]); // Fetch groups and join requests when userId changes
+  }, [userId]); // Fetch groups when userId changes
 
   const fetchGroups = async () => {
     const token = localStorage.getItem('access_token');
@@ -126,31 +126,19 @@ const Groups: React.FC = () => {
       }));
 
       setJoinRequests(prev => ({ ...prev, [groupId]: formattedRequests }));
+      setActiveGroup(groupId); // Set the active group
     } catch (error) {
       console.error('Error fetching join requests:', error);
-      alert('Failed to fetch join requests. Please try again.');
+      alert('No Join Requests for this Group!');
     }
   };
 
   const handleIconClick = async (groupId: number) => {
-    await fetchJoinRequestsForGroup(groupId);
-  };
-
-  const fetchJoinRequests = async () => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      console.error('Authentication token not found.');
-      return;
-    }
-
-    try {
-      const response = await axios.get('http://localhost:3000/groups/my-join-requests', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      console.log('Join requests response:', response.data);
-    } catch (error) {
-      console.error('Error fetching join requests:', error);
+    if (activeGroup === groupId) {
+      // Toggle visibility
+      setActiveGroup(null);
+    } else {
+      await fetchJoinRequestsForGroup(groupId);
     }
   };
 
@@ -223,8 +211,6 @@ const Groups: React.FC = () => {
     } catch (error) {
       console.error('Error requesting to join private group:', error);
       if (axios.isAxiosError(error) && error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
         alert(`Failed to send join request: ${error.response.data.message || 'Please try again.'}`);
       } else {
         alert('Failed to send join request. Please try again.');
@@ -319,11 +305,19 @@ const Groups: React.FC = () => {
                       className="notification-icon"
                       onClick={() => handleIconClick(group.id)}
                     />
-                    {joinRequests[group.id]?.map((request, index) => (
-                      <div key={index}>
-                        {request.fullName} has requested to join your group!
+                    {activeGroup === group.id && ( // Show requests only if the group is active
+                      <div>
+                        {joinRequests[group.id]?.length > 0 ? (
+                          joinRequests[group.id].map((request, index) => (
+                            <div key={index}>
+                              {request.fullName} has requested to join your group!
+                            </div>
+                          ))
+                        ) : (
+                          <div>No join requests for this group</div>
+                        )}
                       </div>
-                    ))}
+                    )}
                   </td>
                 )}
               </tr>
@@ -349,7 +343,7 @@ const Groups: React.FC = () => {
                     <span>Owner</span>
                   ) : (
                     <button onClick={() => handleJoinPublicGroup(group.id)}>
-                      Join
+                      {group.isMember ? 'Joined' : 'Join'}
                     </button>
                   )}
                 </td>
