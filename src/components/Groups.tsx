@@ -1,44 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { FaBell } from 'react-icons/fa'; // 
+import { FaBell } from 'react-icons/fa'; // Import notification icon
 import './Groups.css';
 
-interface Group {
+interface ExtendedGroup {
   id: number;
   name: string;
-  isMember?: boolean;
+  visibility: 'public' | 'private';
+  owner: {
+    id: number;
+    fullName: string;
+  };
+  users: { id: number; fullName: string }[];
+  isMember?: boolean; 
+  isOwner?: boolean;
+  joinRequestPending?: boolean;  // New property to track pending join requests
 }
 
 const Groups: React.FC = () => {
-  const [publicGroups, setPublicGroups] = useState<Group[]>([]);
-  const [privateGroups, setPrivateGroups] = useState<Group[]>([]);
+  const [publicGroups, setPublicGroups] = useState<ExtendedGroup[]>([]);
+  const [privateGroups, setPrivateGroups] = useState<ExtendedGroup[]>([]);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupVisibility, setNewGroupVisibility] = useState<'public' | 'private'>('public');
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [groupRequests, setGroupRequests] = useState<any[]>([]); // Placeholder for group join requests
-  const [showRequests, setShowRequests] = useState(false); // Toggle requests dropdown
+  const [joinRequests, setJoinRequests] = useState<{ [key: number]: { fullName: string; status: string }[] }>({});
+
+  // useRef to ensure API is called only once
+  const hasFetchedData = useRef(false);
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('userId');
     if (storedUserId) {
       setUserId(storedUserId);
+      console.log('User found in local storage.', storedUserId);
+    } else {
+      console.log('User ID not found in local storage.', storedUserId);
     }
-    fetchGroups();
-    fetchGroupRequests(); // Fetch requests on load
   }, []);
 
-  const fetchGroupRequests = async () => {
-    setGroupRequests([
-      { id: 1, name: 'User 1', groupName: 'Group A' },
-      { id: 2, name: 'User 2', groupName: 'Group B' },
-    ]);
-  };
-
-  const toggleRequests = () => {
-    setShowRequests(!showRequests);
-  };
+  useEffect(() => {
+    if (userId) {
+      fetchGroups();
+      fetchJoinRequests();  // Call the function to fetch join requests
+    }
+  }, [userId]); // Fetch groups and join requests when userId changes
 
   const fetchGroups = async () => {
     const token = localStorage.getItem('access_token');
@@ -48,7 +55,22 @@ const Groups: React.FC = () => {
       return;
     }
 
+    if (!userId) {
+      setError('User ID not found. Please log in again.');
+      setLoading(false);
+      return;
+    }
+
     try {
+      const userIdNumber = parseInt(userId, 10);
+
+      if (isNaN(userIdNumber)) {
+        console.error('Invalid User ID:', userId);
+        setError('Invalid User ID. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
       const [publicResponse, privateResponse] = await Promise.all([
         axios.get('http://localhost:3000/groups/public', {
           headers: { Authorization: `Bearer ${token}` }
@@ -58,10 +80,25 @@ const Groups: React.FC = () => {
         })
       ]);
 
-      setPublicGroups(publicResponse.data.map((group: Group) => ({ ...group, isMember: group.isMember || false })));
-      setPrivateGroups(privateResponse.data.map((group: Group) => ({ ...group, isMember: group.isMember || false })));
-      console.log('Private Groups:', privateResponse.data);
+      console.log('Public groups response:', publicResponse.data);
+      console.log('Private groups response:', privateResponse.data);
 
+      const publicGroupsData = publicResponse.data.map((group: ExtendedGroup) => {
+        const isMember = group.users.some(user => user.id === userIdNumber);
+        const isOwner = group.owner.id === userIdNumber;
+        console.log(`Group ${group.name} - isMember: ${isMember}, isOwner: ${isOwner}`);
+        return { ...group, isMember, isOwner };
+      });
+
+      const privateGroupsData = privateResponse.data.map((group: ExtendedGroup) => {
+        const isMember = group.users.some(user => user.id === userIdNumber);
+        const isOwner = group.owner.id === userIdNumber;
+        console.log(`Group ${group.name} - isMember: ${isMember}, isOwner: ${isOwner}`);
+        return { ...group, isMember, isOwner };
+      });
+
+      setPublicGroups(publicGroupsData);
+      setPrivateGroups(privateGroupsData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching groups:', error);
@@ -70,65 +107,127 @@ const Groups: React.FC = () => {
     }
   };
 
-  const handleJoinPublicGroup = async (groupId: number) => {
+  const fetchJoinRequestsForGroup = async (groupId: number) => {
     const token = localStorage.getItem('access_token');
     if (!token) {
       alert('Authentication token not found. Please log in.');
       return;
     }
+
+    try {
+      const response = await axios.get(`http://localhost:3000/groups/${groupId}/join-requests`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const requests = response.data;
+      const formattedRequests = requests.map((request: any) => ({
+        fullName: request.user.fullName,
+        status: request.status
+      }));
+
+      setJoinRequests(prev => ({ ...prev, [groupId]: formattedRequests }));
+    } catch (error) {
+      console.error('Error fetching join requests:', error);
+      alert('Failed to fetch join requests. Please try again.');
+    }
+  };
+
+  const handleIconClick = async (groupId: number) => {
+    await fetchJoinRequestsForGroup(groupId);
+  };
+
+  const fetchJoinRequests = async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      console.error('Authentication token not found.');
+      return;
+    }
+
+    try {
+      const response = await axios.get('http://localhost:3000/groups/my-join-requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log('Join requests response:', response.data);
+    } catch (error) {
+      console.error('Error fetching join requests:', error);
+    }
+  };
+
+  const handleJoinPublicGroup = async (groupId: number) => {
+    const token = localStorage.getItem('access_token');
+    const userId = localStorage.getItem('userId');
+    
+    if (!token) {
+      alert('Authentication token not found. Please log in.');
+      return;
+    }
+  
+    if (!userId) {
+      alert('User ID not found. Please log in again.');
+      return;
+    }
   
     try {
-      const response = await axios.post(`http://localhost:3000/groups/${groupId}/join`, {}, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await axios.post(
+        `http://localhost:3000/groups/${groupId}/join`,
+        { userId: parseInt(userId, 10) },
+        {
+          headers: { Authorization: `Bearer ${token}` },
         }
-      });
+      );
   
-      if (response.data.alreadyMember) {
-        alert('You are already a member of this group.');
-      } else {
-        alert('You have successfully joined the group.');
-        setPublicGroups(prevGroups =>
-          prevGroups.map(group =>
-            group.id === groupId ? { ...group, isMember: true } : group
-          )
-        );
-      }
-      console.log(response.data);
+      console.log('Join public group response:', response.data);
+  
+      // Update local state to reflect the change
+      setPublicGroups((prevGroups) =>
+        prevGroups.map((group) =>
+          group.id === groupId ? { ...group, isMember: true } : group
+        )
+      );
+      alert('Successfully joined the group!');
     } catch (error) {
-      console.error('Error joining the group:', error);
-      alert('Failed to join the group. Please try again later.');
+      console.error('Error joining public group:', error);
+      alert('Failed to join the group. Please try again.');
     }
   };
 
   const handleRequestPrivateGroup = async (groupId: number, groupName: string) => {
+    console.log(`Request to join private group with ID: ${groupId} and Name: ${groupName}`);
+    
     const token = localStorage.getItem('access_token');
     if (!token) {
-      alert('Authentication token not found. Please log in.');
+      alert('Authentication token not found. Please log in again.');
       return;
     }
-  
+
     try {
-      const response = await axios.post(`http://localhost:3000/groups/request-join/${groupId}`, {}, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await axios.post(
+        `http://localhost:3000/groups/request-join/${groupId}`,
+        {},  // Empty body as we're sending the user info via token
+        {
+          headers: { Authorization: `Bearer ${token}` }
         }
-      });
-  
-      alert(`Request to join ${groupName} has been sent.`);
-      console.log(response.data);
+      );
+
+      console.log('Request to join private group response:', response.data);
+
+      // Update local state to reflect the pending join request
+      setPrivateGroups((prevGroups) =>
+        prevGroups.map((group) =>
+          group.id === groupId ? { ...group, joinRequestPending: true } : group
+        )
+      );
+
+      alert('Join request sent successfully!');
     } catch (error) {
-      console.error('Error requesting to join the group:', error);
+      console.error('Error requesting to join private group:', error);
       if (axios.isAxiosError(error) && error.response) {
-        if (error.response.status === 400) {
-          alert('This operation is only allowed for private groups.');
-        } else if (error.response.status === 404) {
-          alert('Group or user not found.');
-        } else {
-          alert('Failed to send join request. Please try again later.');
-        }
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        alert(`Failed to send join request: ${error.response.data.message || 'Please try again.'}`);
       } else {
-        alert('An unexpected error occurred. Please try again later.');
+        alert('Failed to send join request. Please try again.');
       }
     }
   };
@@ -162,17 +261,23 @@ const Groups: React.FC = () => {
         }
       });
 
+      console.log('Created group response:', response.data);
+
       const createdGroup = response.data;
 
-      if (newGroupVisibility === 'public') {
-        setPublicGroups(prevGroups => [...prevGroups, { ...createdGroup, isMember: true }]);
-      } else {
-        setPrivateGroups(prevGroups => [...prevGroups, { ...createdGroup, isMember: true }]);
-      }
+      const newGroup: ExtendedGroup = {
+        id: createdGroup.id,
+        name: createdGroup.name,
+        visibility: createdGroup.visibility,
+        owner: { id: parseInt(userId, 10), fullName: 'You' },
+        users: [{ id: parseInt(userId, 10), fullName: 'You' }],
+        isOwner: true,
+        isMember: true
+      };
 
+      setPrivateGroups((prevGroups) => [...prevGroups, newGroup]);
       setNewGroupName('');
       setNewGroupVisibility('public');
-
       alert('Group created successfully!');
     } catch (error) {
       console.error('Error creating group:', error);
@@ -180,83 +285,92 @@ const Groups: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return <div>Loading groups...</div>;
-  }
-
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>{error}</p>;
 
   return (
     <div className="groups-container">
       <h2 className="groups-heading">Groups</h2>
-      <div className="notification-bell">
-        <FaBell onClick={toggleRequests} style={{ cursor: 'pointer' }} />
-        {showRequests && (
-          <div className="requests-dropdown">
-            <h4>Join Requests</h4>
-            <ul>
-              {groupRequests.map(request => (
-                <li key={request.id}>
-                  {request.name} requested to join {request.groupName}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
 
       <div className="groups-section">
         <h3>Private Groups</h3>
         <table className="groups-table">
           <tbody>
             {privateGroups.map(group => (
-              <tr key={group.id} style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}>
+              <tr
+                key={group.id}
+                style={{ backgroundColor: group.isOwner ? 'lightblue' : group.isMember ? 'lightgreen' : 'inherit' }}
+              >
                 <td>{group.name}</td>
                 <td>
-                  {group.isMember ? '(Member)' : (
+                  {group.isMember ? (
+                    <span>Member</span>
+                  ) : group.isOwner ? (
+                    <span>Owner</span>
+                  ) : (
                     <button onClick={() => handleRequestPrivateGroup(group.id, group.name)}>
-                      Request to Join
+                      {group.joinRequestPending ? 'Request Sent' : 'Request to Join'}
                     </button>
                   )}
                 </td>
+                {group.visibility === 'private' && (
+                  <td>
+                    <FaBell
+                      className="notification-icon"
+                      onClick={() => handleIconClick(group.id)}
+                    />
+                    {joinRequests[group.id]?.map((request, index) => (
+                      <div key={index}>
+                        {request.fullName} has requested to join your group!
+                      </div>
+                    ))}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      
+
       <div className="groups-section">
         <h3>Public Groups</h3>
         <table className="groups-table">
           <tbody>
             {publicGroups.map(group => (
-              <tr key={group.id} style={{ backgroundColor: group.isMember ? 'lightgreen' : 'inherit' }}>
+              <tr
+                key={group.id}
+                style={{ backgroundColor: group.isOwner ? 'lightblue' : group.isMember ? 'lightgreen' : 'inherit' }}
+              >
                 <td>{group.name}</td>
                 <td>
-                  {group.isMember ? '(Member)' : (
+                  {group.isMember ? (
+                    <span>Member</span>
+                  ) : group.isOwner ? (
+                    <span>Owner</span>
+                  ) : (
                     <button onClick={() => handleJoinPublicGroup(group.id)}>
                       Join
                     </button>
                   )}
                 </td>
+                {/* No notification icon for public groups */}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      
-      <div className="create-group">
+
+      <div className="create-group-section">
+        <h3>Create a New Group</h3>
         <input
           type="text"
+          placeholder="Group Name"
           value={newGroupName}
-          onChange={e => setNewGroupName(e.target.value)}
-          placeholder="New group name"
+          onChange={(e) => setNewGroupName(e.target.value)}
         />
         <select
           value={newGroupVisibility}
-          onChange={e => setNewGroupVisibility(e.target.value as 'public' | 'private')}
+          onChange={(e) => setNewGroupVisibility(e.target.value as 'public' | 'private')}
         >
           <option value="public">Public</option>
           <option value="private">Private</option>
