@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { FaBell } from 'react-icons/fa'; 
+import { FaBell, FaCheck, FaPlus, FaTimes, FaUserPlus } from 'react-icons/fa'; 
 import './Groups.css';
 
 interface ExtendedGroup {
@@ -85,21 +85,15 @@ const Groups: React.FC = () => {
         })
       ]);
 
-      console.log('Public groups response:', publicResponse.data);
-      console.log('Private groups response:', privateResponse.data);
-
       const publicGroupsData = publicResponse.data.map((group: ExtendedGroup) => {
         const isOwner = group.owner.id === userIdNumber; 
         const isMember = !isOwner && group.users.some(user => user.id === userIdNumber);
-        console.log(`Group ${group.name} - isMember: ${isMember}, isOwner: ${isOwner}`);
         return { ...group, isMember, isOwner };
       });
-      
 
       const privateGroupsData = privateResponse.data.map((group: ExtendedGroup) => {
         const isMember = group.users.some(user => user.id === userIdNumber);
         const isOwner = group.owner.id === userIdNumber;
-        console.log(`Group ${group.name} - isMember: ${isMember}, isOwner: ${isOwner}`);
         return { ...group, isMember, isOwner };
       });
 
@@ -171,8 +165,6 @@ const Groups: React.FC = () => {
         }
       );
   
-      console.log('Join public group response:', response.data);
-  
       setPublicGroups((prevGroups) =>
         prevGroups.map((group) =>
           group.id === groupId ? { ...group, isMember: true } : group
@@ -186,8 +178,6 @@ const Groups: React.FC = () => {
   };
 
   const handleRequestPrivateGroup = async (groupId: number, groupName: string) => {
-    console.log(`Request to join private group with ID: ${groupId} and Name: ${groupName}`);
-    
     const token = localStorage.getItem('access_token');
     if (!token) {
       alert('Authentication token not found. Please log in again.');
@@ -196,16 +186,13 @@ const Groups: React.FC = () => {
 
     try {
       const response = await axios.post(
-        `http://localhost:3000/groups/request-join/${groupId}`,
-        {},  // Empty body as we're sending the user info via token
+        `http://localhost:3000/groups/${groupId}/request-join/`,
+        {},  
         {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
 
-      console.log('Request to join private group response:', response.data);
-
-      // Update local state to reflect the pending join request
       setPrivateGroups((prevGroups) =>
         prevGroups.map((group) =>
           group.id === groupId ? { ...group, joinRequestPending: true } : group
@@ -252,8 +239,6 @@ const Groups: React.FC = () => {
         }
       });
 
-      console.log('Created group response:', response.data);
-
       const createdGroup = response.data;
 
       const newGroup: ExtendedGroup = {
@@ -282,18 +267,15 @@ const Groups: React.FC = () => {
   };
 
   const handleAcceptRequest = async (groupId: number, requestId: number) => {
-    console.log(`Accepting request ${requestId} for group ${groupId}`);
-    // Dummy API call
     try {
-      // In a real scenario, you would make an API call here
+      // Dummy API call
       // await axios.post(`http://localhost:3000/groups/${groupId}/accept-request/${requestId}`);
       
-      // Update local state
       setJoinRequests(prev => ({
         ...prev,
-        [groupId]: prev[groupId].filter(request => request.id !== requestId)
+        [groupId]: prev[groupId].filter(req => req.id !== requestId)
       }));
-
+      
       alert('Request accepted successfully!');
     } catch (error) {
       console.error('Error accepting request:', error);
@@ -302,18 +284,15 @@ const Groups: React.FC = () => {
   };
 
   const handleRejectRequest = async (groupId: number, requestId: number) => {
-    console.log(`Rejecting request ${requestId} for group ${groupId}`);
-    // Dummy API call
     try {
-      // In a real scenario, you would make an API call here
+      // Dummy API call
       // await axios.post(`http://localhost:3000/groups/${groupId}/reject-request/${requestId}`);
       
-      // Update local state
       setJoinRequests(prev => ({
         ...prev,
-        [groupId]: prev[groupId].filter(request => request.id !== requestId)
+        [groupId]: prev[groupId].filter(req => req.id !== requestId)
       }));
-
+      
       alert('Request rejected successfully!');
     } catch (error) {
       console.error('Error rejecting request:', error);
@@ -326,104 +305,151 @@ const Groups: React.FC = () => {
 
   return (
     <div className="groups-container">
-      <h2 className="groups-heading">Groups</h2>
-
+      <h1 className="groups-title">Group Management</h1>
+      
       <div className="groups-section">
-        <h3>Private Groups</h3>
-        <table className="groups-table">
-          <tbody>
-            {privateGroups.map(group => (
-              <tr
-                key={group.id}
-                style={{ backgroundColor: group.isOwner ? 'lightblue' : group.isMember ? 'lightgreen' : 'inherit' }}
-              >
-                <td>{group.name}</td>
-                <td>
-                  {group.isMember ? (
-                    <span>Member</span>
-                  ) : group.isOwner ? (
-                    <span>Owner</span>
-                  ) : (
-                    <button onClick={() => handleRequestPrivateGroup(group.id, group.name)}>
-                      {group.joinRequestPending ? 'Request Sent' : 'Request to Join'}
-                    </button>
-                  )}
-                </td>
-                {group.visibility === 'private' && (
-                  <td>
-                    <FaBell
-                      className="notification-icon"
-                      onClick={() => handleIconClick(group.id)}
-                    />
-                    {activeGroup === group.id && (
-                      <div>
-                        {joinRequests[group.id]?.length > 0 ? (
-                          joinRequests[group.id].map((request) => (
-                            <div key={request.id}>
-                              {request.fullName} has requested to join your group!
-                              <button onClick={() => handleAcceptRequest(group.id, request.id)}>Accept</button>
-                              <button onClick={() => handleRejectRequest(group.id, request.id)}>Reject</button>
-                            </div>
-                          ))
-                        ) : (
-                          <div>No join requests for this group</div>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <div className="mb-12">
+          <h2 className="section-title">Private Groups</h2>
+          {privateGroups.length === 0 ? (
+            <p className="group-info">No private groups available</p>
+          ) : (
+            <div className="groups-grid">
+              {privateGroups.map((group) => (
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  onJoinRequest={() => handleRequestPrivateGroup(group.id, group.name)}
+                  onShowRequests={() => handleIconClick(group.id)}
+                  isActive={activeGroup === group.id}
+                  joinRequests={joinRequests[group.id] || []}
+                  onAcceptRequest={(requestId) => handleAcceptRequest(group.id, requestId)}
+                  onRejectRequest={(requestId) => handleRejectRequest(group.id, requestId)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-      <div className="groups-section">
-        <h3>Public Groups</h3>
-        <table className="groups-table">
-          <tbody>
-            {publicGroups.map(group => (
-              <tr
-                key={group.id}
-                style={{ backgroundColor: group.isOwner ? 'lightblue' : group.isMember ? 'lightgreen' : 'inherit' }}
-              >
-                <td>{group.name}</td>
-                <td>
-                  {group.isMember ? (
-                    <span>Member</span>
-                  ) : group.isOwner ? (
-                    <span>Owner</span>
-                  ) : (
-                    <button onClick={() => handleJoinPublicGroup(group.id)}>
-                      {group.isMember ? 'Joined' : 'Join'}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <div className="mb-12">
+          <h2 className="section-title">Public Groups</h2>
+          {publicGroups.length === 0 ? (
+            <p className="group-info">No public groups available</p>
+          ) : (
+            <div className="groups-grid">
+              {publicGroups.map((group) => (
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  onJoinGroup={() => handleJoinPublicGroup(group.id)}
+                  isPublic
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-      <div className="create-group-section">
-        <h3>Create a New Group</h3>
-        <input
-          type="text"
-          placeholder="Group Name"
-          value={newGroupName}
-          onChange={(e) => setNewGroupName(e.target.value)}
-        />
-        <select
-          value={newGroupVisibility}
-          onChange={(e) => setNewGroupVisibility(e.target.value as 'public' | 'private')}
-        >
-          <option value="public">Public</option>
-          <option value="private">Private</option>
-        </select>
-        <button onClick={handleCreateGroup}>Create Group</button>
+        <div className="create-group-form">
+          <h2 className="form-title">Create New Group</h2>
+          <div className="form-content">
+            <input
+              type="text"
+              placeholder="New group name"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              className="form-input"
+            />
+            <select
+              value={newGroupVisibility}
+              onChange={(e) => setNewGroupVisibility(e.target.value as 'public' | 'private')}
+              className="form-select"
+            >
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+            <button onClick={handleCreateGroup} className="btn btn-primary">
+              Add
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
+
+const GroupCard: React.FC<{
+  group: ExtendedGroup;
+  onJoinGroup?: () => void;
+  onJoinRequest?: () => void;
+  onShowRequests?: () => void;
+  isActive?: boolean;
+  joinRequests?: JoinRequest[];
+  onAcceptRequest?: (requestId: number) => void;
+  onRejectRequest?: (requestId: number) => void;
+  isPublic?: boolean;
+}> = ({
+  group,
+  onJoinGroup,
+  onJoinRequest,
+  onShowRequests,
+  isActive,
+  joinRequests,
+  onAcceptRequest,
+  onRejectRequest,
+  isPublic
+}) => (
+  <div className="group-card">
+    <h3 className="group-name">{group.name}</h3>
+    <p className="group-info">Owner: {group.owner.fullName}</p>
+    <p className="group-info">Members: {group.users.length}</p>
+    
+    {group.isOwner ? (
+      <p className="group-status status-owner">You are the owner of this group</p>
+    ) : group.isMember ? (
+      <p className="group-status status-member">You are a member of this group</p>
+    ) : isPublic ? (
+      <button onClick={onJoinGroup} className="btn btn-primary btn-full">
+        <FaUserPlus className="btn-icon" />
+        Join Group
+      </button>
+    ) : (
+      <button onClick={onJoinRequest} className="btn btn-primary btn-full">
+        <FaUserPlus className="btn-icon" />
+        Request to Join
+      </button>
+    )}
+    
+    {group.joinRequestPending && (
+      <p className="group-status status-pending">Join request pending</p>
+    )}
+    
+    {onShowRequests && (
+      <button onClick={onShowRequests} className="btn btn-secondary btn-full">
+        <FaBell className="btn-icon" />
+        {isActive ? 'Hide Requests' : 'Show Requests'}
+      </button>
+    )}
+    
+    {isActive && joinRequests && (
+      <div className="join-requests">
+        {joinRequests.map((request) => (
+          <div key={request.id} className="join-request">
+            <span>{request.fullName}</span>
+            {request.status === 'pending' && (
+              <div className="request-actions">
+                <button onClick={() => onAcceptRequest?.(request.id)} className="btn btn-accept">
+                  <FaCheck />
+                </button>
+                <button onClick={() => onRejectRequest?.(request.id)} className="btn btn-reject">
+                  <FaTimes />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
 
 export default Groups;
