@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { FaBell } from 'react-icons/fa'; // Import notification icon
+import { FaBell } from 'react-icons/fa'; 
 import './Groups.css';
 
 interface ExtendedGroup {
@@ -14,7 +14,13 @@ interface ExtendedGroup {
   users: { id: number; fullName: string }[];
   isMember?: boolean; 
   isOwner?: boolean;
-  joinRequestPending?: boolean;  // New property to track pending join requests
+  joinRequestPending?: boolean;  
+}
+
+interface JoinRequest {
+  id: number;
+  fullName: string;
+  status: string;
 }
 
 const Groups: React.FC = () => {
@@ -25,10 +31,9 @@ const Groups: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [joinRequests, setJoinRequests] = useState<{ [key: number]: { fullName: string; status: string }[] }>({});
-  const [activeGroup, setActiveGroup] = useState<number | null>(null); // Track the active group for join requests
+  const [joinRequests, setJoinRequests] = useState<{ [key: number]: JoinRequest[] }>({});
+  const [activeGroup, setActiveGroup] = useState<number | null>(null); 
 
-  // useRef to ensure API is called only once
   const hasFetchedData = useRef(false);
 
   useEffect(() => {
@@ -45,7 +50,7 @@ const Groups: React.FC = () => {
     if (userId) {
       fetchGroups();
     }
-  }, [userId]); // Fetch groups when userId changes
+  }, [userId]); 
 
   const fetchGroups = async () => {
     const token = localStorage.getItem('access_token');
@@ -84,11 +89,12 @@ const Groups: React.FC = () => {
       console.log('Private groups response:', privateResponse.data);
 
       const publicGroupsData = publicResponse.data.map((group: ExtendedGroup) => {
-        const isMember = group.users.some(user => user.id === userIdNumber);
-        const isOwner = group.owner.id === userIdNumber;
+        const isOwner = group.owner.id === userIdNumber; 
+        const isMember = !isOwner && group.users.some(user => user.id === userIdNumber);
         console.log(`Group ${group.name} - isMember: ${isMember}, isOwner: ${isOwner}`);
         return { ...group, isMember, isOwner };
       });
+      
 
       const privateGroupsData = privateResponse.data.map((group: ExtendedGroup) => {
         const isMember = group.users.some(user => user.id === userIdNumber);
@@ -121,21 +127,21 @@ const Groups: React.FC = () => {
 
       const requests = response.data;
       const formattedRequests = requests.map((request: any) => ({
+        id: request.id,
         fullName: request.user.fullName,
         status: request.status
       }));
 
       setJoinRequests(prev => ({ ...prev, [groupId]: formattedRequests }));
-      setActiveGroup(groupId); // Set the active group
+      setActiveGroup(groupId); 
     } catch (error) {
       console.error('Error fetching join requests:', error);
-      alert('No Join Requests for this Group!');
+      alert('Failed to fetch join requests. Please try again.');
     }
   };
 
   const handleIconClick = async (groupId: number) => {
     if (activeGroup === groupId) {
-      // Toggle visibility
       setActiveGroup(null);
     } else {
       await fetchJoinRequestsForGroup(groupId);
@@ -167,7 +173,6 @@ const Groups: React.FC = () => {
   
       console.log('Join public group response:', response.data);
   
-      // Update local state to reflect the change
       setPublicGroups((prevGroups) =>
         prevGroups.map((group) =>
           group.id === groupId ? { ...group, isMember: true } : group
@@ -258,16 +263,61 @@ const Groups: React.FC = () => {
         owner: { id: parseInt(userId, 10), fullName: 'You' },
         users: [{ id: parseInt(userId, 10), fullName: 'You' }],
         isOwner: true,
-        isMember: true
+        isMember: createdGroup.visibility === 'public' 
       };
 
-      setPrivateGroups((prevGroups) => [...prevGroups, newGroup]);
+      if (newGroup.visibility === 'public') {
+        setPublicGroups((prevGroups) => [...prevGroups, newGroup]);
+      } else {
+        setPrivateGroups((prevGroups) => [...prevGroups, newGroup]);
+      }
+
       setNewGroupName('');
       setNewGroupVisibility('public');
       alert('Group created successfully!');
     } catch (error) {
       console.error('Error creating group:', error);
       alert('Failed to create group. Please try again.');
+    }
+  };
+
+  const handleAcceptRequest = async (groupId: number, requestId: number) => {
+    console.log(`Accepting request ${requestId} for group ${groupId}`);
+    // Dummy API call
+    try {
+      // In a real scenario, you would make an API call here
+      // await axios.post(`http://localhost:3000/groups/${groupId}/accept-request/${requestId}`);
+      
+      // Update local state
+      setJoinRequests(prev => ({
+        ...prev,
+        [groupId]: prev[groupId].filter(request => request.id !== requestId)
+      }));
+
+      alert('Request accepted successfully!');
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      alert('Failed to accept request. Please try again.');
+    }
+  };
+
+  const handleRejectRequest = async (groupId: number, requestId: number) => {
+    console.log(`Rejecting request ${requestId} for group ${groupId}`);
+    // Dummy API call
+    try {
+      // In a real scenario, you would make an API call here
+      // await axios.post(`http://localhost:3000/groups/${groupId}/reject-request/${requestId}`);
+      
+      // Update local state
+      setJoinRequests(prev => ({
+        ...prev,
+        [groupId]: prev[groupId].filter(request => request.id !== requestId)
+      }));
+
+      alert('Request rejected successfully!');
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      alert('Failed to reject request. Please try again.');
     }
   };
 
@@ -305,12 +355,14 @@ const Groups: React.FC = () => {
                       className="notification-icon"
                       onClick={() => handleIconClick(group.id)}
                     />
-                    {activeGroup === group.id && ( // Show requests only if the group is active
+                    {activeGroup === group.id && (
                       <div>
                         {joinRequests[group.id]?.length > 0 ? (
-                          joinRequests[group.id].map((request, index) => (
-                            <div key={index}>
+                          joinRequests[group.id].map((request) => (
+                            <div key={request.id}>
                               {request.fullName} has requested to join your group!
+                              <button onClick={() => handleAcceptRequest(group.id, request.id)}>Accept</button>
+                              <button onClick={() => handleRejectRequest(group.id, request.id)}>Reject</button>
                             </div>
                           ))
                         ) : (
@@ -347,7 +399,6 @@ const Groups: React.FC = () => {
                     </button>
                   )}
                 </td>
-                {/* No notification icon for public groups */}
               </tr>
             ))}
           </tbody>

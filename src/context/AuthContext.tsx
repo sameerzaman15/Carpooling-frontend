@@ -61,7 +61,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('userId', userId);
 
-      // Fetch user details after login
       await fetchUserDetails(userId, access_token);
       alert('Login successful!');
       navigate('/');
@@ -82,6 +81,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await axios.get(`http://localhost:3000/user-details/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      localStorage.setItem('userDetails', JSON.stringify(response.data));
       setUser(response.data);
     } catch (error) {
       console.error('Error fetching user details:', error);
