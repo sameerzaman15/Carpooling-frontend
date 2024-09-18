@@ -268,20 +268,38 @@ const Groups: React.FC = () => {
 
   const handleAcceptRequest = async (groupId: number, requestId: number) => {
     try {
-      // Dummy API call
-      // await axios.post(`http://localhost:3000/groups/${groupId}/accept-request/${requestId}`);
-      
-      setJoinRequests(prev => ({
-        ...prev,
-        [groupId]: prev[groupId].filter(req => req.id !== requestId)
-      }));
-      
-      alert('Request accepted successfully!');
+     
+      const token = localStorage.getItem('access_token');
+      const response = await axios.post(
+        `http://localhost:3000/groups/join-requests/${requestId}/approve`,
+        {}, 
+        {
+          headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+  
+      if (response.status === 201) {
+  
+        setJoinRequests(prev => ({
+          ...prev,
+          [groupId]: prev[groupId].filter(req => req.id !== requestId)
+        }));
+  
+        // Notify the user of success
+        alert('Request accepted successfully!');
+      } else {
+        alert('Failed to accept request. Please try again.');
+      }
     } catch (error) {
       console.error('Error accepting request:', error);
       alert('Failed to accept request. Please try again.');
     }
   };
+  
+  
 
   const handleRejectRequest = async (groupId: number, requestId: number) => {
     try {
