@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { FaBell, FaCheck, FaPlus, FaTimes, FaUserPlus } from 'react-icons/fa'; 
+import { FaBell, FaCheck, FaPlus, FaTimes, FaUserPlus, FaCog } from 'react-icons/fa';
 import './Groups.css';
 
 interface ExtendedGroup {
@@ -12,9 +12,9 @@ interface ExtendedGroup {
     fullName: string;
   };
   users: { id: number; fullName: string }[];
-  isMember?: boolean; 
+  isMember?: boolean;
   isOwner?: boolean;
-  joinRequestPending?: boolean;  
+  joinRequestPending?: boolean;
 }
 
 interface JoinRequest {
@@ -32,7 +32,9 @@ const Groups: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [joinRequests, setJoinRequests] = useState<{ [key: number]: JoinRequest[] }>({});
-  const [activeGroup, setActiveGroup] = useState<number | null>(null); 
+  const [activeGroup, setActiveGroup] = useState<number | null>(null);
+  const [showSettings, setShowSettings] = useState<{ [key: number]: boolean }>({});
+  const [editingName, setEditingName] = useState<{ [key: number]: string }>({});
 
   const hasFetchedData = useRef(false);
 
@@ -50,7 +52,7 @@ const Groups: React.FC = () => {
     if (userId) {
       fetchGroups();
     }
-  }, [userId]); 
+  }, [userId]);
 
   const fetchGroups = async () => {
     const token = localStorage.getItem('access_token');
@@ -86,7 +88,7 @@ const Groups: React.FC = () => {
       ]);
 
       const publicGroupsData = publicResponse.data.map((group: ExtendedGroup) => {
-        const isOwner = group.owner.id === userIdNumber; 
+        const isOwner = group.owner.id === userIdNumber;
         const isMember = !isOwner && group.users.some(user => user.id === userIdNumber);
         return { ...group, isMember, isOwner };
       });
@@ -127,7 +129,7 @@ const Groups: React.FC = () => {
       }));
 
       setJoinRequests(prev => ({ ...prev, [groupId]: formattedRequests }));
-      setActiveGroup(groupId); 
+      setActiveGroup(groupId);
     } catch (error) {
       console.error('Error fetching join requests:', error);
       alert('Failed to fetch join requests. Please try again.');
@@ -171,6 +173,7 @@ const Groups: React.FC = () => {
         )
       );
       alert('Successfully joined the group!');
+      fetchGroups(); // Re-fetch groups to ensure consistency
     } catch (error) {
       console.error('Error joining public group:', error);
       alert('Failed to join the group. Please try again.');
@@ -260,6 +263,7 @@ const Groups: React.FC = () => {
       setNewGroupName('');
       setNewGroupVisibility('public');
       alert('Group created successfully!');
+      fetchGroups(); // Re-fetch groups to ensure consistency
     } catch (error) {
       console.error('Error creating group:', error);
       alert('Failed to create group. Please try again.');
@@ -268,7 +272,6 @@ const Groups: React.FC = () => {
 
   const handleAcceptRequest = async (groupId: number, requestId: number) => {
     try {
-     
       const token = localStorage.getItem('access_token');
       const response = await axios.post(
         `http://localhost:3000/groups/join-requests/${requestId}/approve`,
@@ -282,14 +285,13 @@ const Groups: React.FC = () => {
       );
   
       if (response.status === 201) {
-  
         setJoinRequests(prev => ({
           ...prev,
           [groupId]: prev[groupId].filter(req => req.id !== requestId)
         }));
   
-        // Notify the user of success
         alert('Request accepted successfully!');
+        fetchGroups(); // Re-fetch groups to ensure consistency
       } else {
         alert('Failed to accept request. Please try again.');
       }
@@ -298,13 +300,19 @@ const Groups: React.FC = () => {
       alert('Failed to accept request. Please try again.');
     }
   };
-  
-  
 
   const handleRejectRequest = async (groupId: number, requestId: number) => {
     try {
-      // Dummy API call
-      // await axios.post(`http://localhost:3000/groups/${groupId}/reject-request/${requestId}`);
+       const token = localStorage.getItem('access_token');
+       await axios.post(`http://localhost:3000/groups/join-requests/${requestId}/decline`,
+        {}, 
+        {
+          headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+          }
+        }
+      );
       
       setJoinRequests(prev => ({
         ...prev,
@@ -318,12 +326,74 @@ const Groups: React.FC = () => {
     }
   };
 
+  const handleShowSettings = (groupId: number) => {
+    setShowSettings(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
+
+  const handleEditGroupName = async (groupId: number, newName: string) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Authentication token not found. Please log in again.');
+      return;
+    }
+
+    try {
+      // Dummy API call - replace with actual implementation later
+      // await axios.put(`http://localhost:3000/groups/${groupId}`, { name: newName }, {
+      //   headers: { Authorization: `Bearer ${token}` }
+      // });
+
+      // Update local state
+      setPublicGroups(prev => prev.map(group => 
+        group.id === groupId ? { ...group, name: newName } : group
+      ));
+      setPrivateGroups(prev => prev.map(group => 
+        group.id === groupId ? { ...group, name: newName } : group
+      ));
+
+      setEditingName(prev => ({ ...prev, [groupId]: '' }));
+      setShowSettings(prev => ({ ...prev, [groupId]: false }));
+      alert('Group name updated successfully!');
+    } catch (error) {
+      console.error('Error updating group name:', error);
+      alert('Failed to update group name. Please try again.');
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: number) => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      alert('Authentication token not found. Please log in again.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this group?')) {
+      return;
+    }
+
+    try {
+      // Dummy API call - replace with actual implementation later
+      // await axios.delete(`http://localhost:3000/groups/${groupId}`, {
+      //   headers: { Authorization: `Bearer ${token}` }
+      // });
+
+      // Update local state
+      setPublicGroups(prev => prev.filter(group => group.id !== groupId));
+      setPrivateGroups(prev => prev.filter(group => group.id !== groupId));
+
+      alert('Group deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      alert('Failed to delete group. Please try again.');
+    }
+  };
+
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
 
   return (
     <div className="groups-container">
-      <h1 className="groups-title">Group Management</h1>
+      <h1 className="groups-title">Groups</h1>
       
       <div className="groups-section">
         <div className="mb-12">
@@ -342,6 +412,12 @@ const Groups: React.FC = () => {
                   joinRequests={joinRequests[group.id] || []}
                   onAcceptRequest={(requestId) => handleAcceptRequest(group.id, requestId)}
                   onRejectRequest={(requestId) => handleRejectRequest(group.id, requestId)}
+                  onShowSettings={() => handleShowSettings(group.id)}
+                  showSettings={showSettings[group.id]}
+                  onEditName={(newName) => handleEditGroupName(group.id, newName)}
+                  onDelete={() => handleDeleteGroup(group.id)}
+                  editingName={editingName[group.id] || ''}
+                  setEditingName={(name) => setEditingName(prev => ({ ...prev, [group.id]: name }))}
                 />
               ))}
             </div>
@@ -360,6 +436,12 @@ const Groups: React.FC = () => {
                   group={group}
                   onJoinGroup={() => handleJoinPublicGroup(group.id)}
                   isPublic
+                  onShowSettings={() => handleShowSettings(group.id)}
+                  showSettings={showSettings[group.id]}
+                  onEditName={(newName) => handleEditGroupName(group.id, newName)}
+                  onDelete={() => handleDeleteGroup(group.id)}
+                  editingName={editingName[group.id] || ''}
+                  setEditingName={(name) => setEditingName(prev => ({ ...prev, [group.id]: name }))}
                 />
               ))}
             </div>
@@ -394,7 +476,6 @@ const Groups: React.FC = () => {
   );
 };
 
-
 const GroupCard: React.FC<{
   group: ExtendedGroup;
   onJoinGroup?: () => void;
@@ -405,6 +486,12 @@ const GroupCard: React.FC<{
   onAcceptRequest?: (requestId: number) => void;
   onRejectRequest?: (requestId: number) => void;
   isPublic?: boolean;
+  onShowSettings: () => void;
+  showSettings: boolean;
+  onEditName: (newName: string) => void;
+  onDelete: () => void;
+  editingName: string;
+  setEditingName: (name: string) => void;
 }> = ({
   group,
   onJoinGroup,
@@ -414,10 +501,40 @@ const GroupCard: React.FC<{
   joinRequests,
   onAcceptRequest,
   onRejectRequest,
-  isPublic
+  isPublic,
+  onShowSettings,
+  showSettings,
+  onEditName,
+  onDelete,
+  editingName,
+  setEditingName
 }) => (
   <div className="group-card">
-    <h3 className="group-name">{group.name}</h3>
+    <div className="group-header">
+      <h3 className="group-name">{group.name}</h3>
+      {group.isOwner && (
+        <button onClick={onShowSettings} className="btn btn-icon">
+          <FaCog />
+        </button>
+      )}
+    </div>
+    {showSettings && (
+      <div className="group-settings">
+        <input
+          type="text"
+          value={editingName}
+          onChange={(e) => setEditingName(e.target.value)}
+          placeholder="New group name"
+          className="form-input"
+        />
+        <button onClick={() => onEditName(editingName)} className="btn btn-primary">
+          Update Name
+        </button>
+        <button onClick={onDelete} className="btn btn-danger">
+          Delete Group
+        </button>
+      </div>
+    )}
     <p className="group-info">Owner: {group.owner.fullName}</p>
     <p className="group-info">Members: {group.users.length}</p>
     
