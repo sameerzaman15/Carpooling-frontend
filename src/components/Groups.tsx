@@ -338,10 +338,10 @@ const Groups: React.FC = () => {
     }
 
     try {
-      // Dummy API call - replace with actual implementation later
-      // await axios.put(`http://localhost:3000/groups/${groupId}`, { name: newName }, {
-      //   headers: { Authorization: `Bearer ${token}` }
-      // });
+     
+       await axios.patch(`http://localhost:3000/groups/${groupId}/update-name`, { name: newName }, {
+        headers: { Authorization: `Bearer ${token}` }
+       });
 
       // Update local state
       setPublicGroups(prev => prev.map(group => 
@@ -372,10 +372,9 @@ const Groups: React.FC = () => {
     }
 
     try {
-      // Dummy API call - replace with actual implementation later
-      // await axios.delete(`http://localhost:3000/groups/${groupId}`, {
-      //   headers: { Authorization: `Bearer ${token}` }
-      // });
+       await axios.delete(`http://localhost:3000/groups/${groupId}`, {
+         headers: { Authorization: `Bearer ${token}` }
+      });
 
       // Update local state
       setPublicGroups(prev => prev.filter(group => group.id !== groupId));
@@ -558,13 +557,12 @@ const GroupCard: React.FC<{
       <p className="group-status status-pending">Join request pending</p>
     )}
     
-    {onShowRequests && (
-      <button onClick={onShowRequests} className="btn btn-secondary btn-full">
-        <FaBell className="btn-icon" />
-        {isActive ? 'Hide Requests' : 'Show Requests'}
-      </button>
-    )}
-    
+    {group.isOwner && onShowRequests && (
+  <button onClick={onShowRequests} className="btn btn-secondary btn-full">
+    <FaBell className="btn-icon" />
+    {isActive ? 'Hide Requests' : 'Show Requests'}
+  </button>
+)}
     {isActive && joinRequests && (
       <div className="join-requests">
         {joinRequests.map((request) => (
