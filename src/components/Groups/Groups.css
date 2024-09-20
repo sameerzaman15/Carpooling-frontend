@@ -180,8 +180,6 @@
 
 .form-input:focus {
   outline: none;
-  ring: 2px;
-  ring-color: #3b82f6;
 }
 
 .form-select {
@@ -193,7 +191,35 @@
 
 .form-select:focus {
   outline: none;
-  ring: 2px;
-  ring-color: #3b82f6;
+}
+.members-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
+.toggle-icon {
+  margin-left: 5px;
+}
+
+.members-list {
+  list-style-type: none;
+  padding-left: 20px;
+  margin-top: 5px;
+}
+
+.member-item {
+  margin-bottom: 3px;
+}
+.member-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.btn-small {
+  padding: 2px 5px;
+  font-size: 0.8em;
+}

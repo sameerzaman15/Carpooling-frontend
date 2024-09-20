@@ -1,5 +1,5 @@
 import React from 'react';
-import Groups from './Groups'; 
+import Groups from './Groups/Groups'; 
 import './Home.css'; 
 
 const Home: React.FC = () => {
